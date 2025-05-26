@@ -52,8 +52,6 @@ async def start():
 async def main(base: Base):
     possibleCards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king', 'ace']
     seed = []
-    if base.ip not in kv.get("ip"):
-    	return {None}
     scores = kv.get("score").split(", ")
     moves = kv.get("move").split(", ")
     moves[int(base.spot)] = base.move
