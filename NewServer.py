@@ -2,16 +2,25 @@ from fastapi import FastAPI
 from upstash_redis import Redis
 import random
 import time
+from pydantic import BaseModel, ValidationError
 
+
+class Base(BaseModel):
+    ip: str | None
+    spot: str | None
+    move: str | None
+    score: str | None
+    
+
+try:
+    Base()
+except ValidationError as exc:
+    print(repr(exc.errors()[0]['type']))
 app = FastAPI()
 kv = Redis(url="https://full-walrus-28914.upstash.io", token="AXDyAAIjcDE4NDE2MDYwMmI0MDc0MzQxYTEwODdiN2FmN2VkZDhhYXAxMA")
+
 @app.get("/queue/{inp}", tags=["Root"])
 async def test(inp: str):
-    kv.set('p1move', 'true')
-    kv.set('p2move', 'true')
-    kv.set("p1score", '0')
-    kv.set("p2score", '0')
-    print(type(inp))
     try:
         if inp not in kv.get("ip"):
             kv.set("ip", kv.get("ip") + ', ' + inp )
@@ -33,29 +42,32 @@ async def clear():
 @app.get("/start/")
 async def start():
     kv.set("started", True)
+    string = ""
+    for i in range(len((kv.get("ip")).split(","))):
+    	string += "blank, "
+    kv.set("move", string)
+    kv.set("score", string)
 
-@app.get("/main/{spot}/{move}/{score}")
-async def main(spot: str, move: str, score: str):
+@app.post("/main/")
+async def main(base: Base):
     possibleCards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king', 'ace']
     seed = []
-    print(spot, type(spot))
-    if spot == '1':
-    	kv.set('p1move', move)
-    	kv.set('p1score', score)
-    else:
-    	kv.set('p2score', score)
-    	kv.set('p2move', move)
-
+    if base.ip not in kv.get("ip"):
+    	return {None}
+    scores = kv.get("score").split(", ")
+    moves = kv.get("move").split(", ")
+    moves[int(base.spot)] = base.move
+    scores[int(base.spot)] = base.score
+    kv.set("move", ', '.join(map(str, moves)))
+    kv.set("score", ', '.join(map(str, scores)))
     for i in range(20):
         seed.append(possibleCards[random.randrange(0, len(possibleCards))])
-    return {"p1move": seed[random.randrange(3, 10)], "p2move": seed[random.randrange(3, 10)], "p1score": kv.get("p1move")}
+    return {"move": seed[random.randrange(3, 10)]}
 
     
-@app.get('/request')
+@app.get('/request/')
 async def request():
-    return {"p1move": kv.get("p1move"), "p2move": kv.get('p2move'), "p1score": kv.get("p1score"), "p2score": kv.get("p2score")}
-    
-    
+    return {"moves": kv.get("move"), "scores": kv.get("score")}
     
     
     
